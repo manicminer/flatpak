@@ -44,6 +44,51 @@
                 },
                 "System Bus Policy": {}
             }
+        },
+        "io.github.manicminer.Klinker": {
+            "title": "Klinker (browser chooser and link router for KDE Plasma)",
+            "source_repo": "manicminer/klinker",
+            "workflow_path": ".github/workflows/flatpak.yml",
+            "tag_regex": "^v[0-9]{1,4}\\.[0-9]{1,4}\\.[0-9]{1,4}$",
+            "branch": "stable",
+            "arches": [
+                "x86_64"
+            ],
+            "extra_refs": [],
+            "max_repo_tar_bytes": 104857600,
+            "dispatch_branch": "main",
+            "packaging_prefix": "packaging/flatpak/",
+            "permissions": {
+                "Context": {
+                    "shared": [
+                        "ipc",
+                        "network"
+                    ],
+                    "sockets": [
+                        "fallback-x11",
+                        "wayland"
+                    ],
+                    "filesystems": [
+                        "host-os:ro",
+                        "xdg-config/kdeglobals:ro",
+                        "xdg-data/applications:ro",
+                        "xdg-data/icons:ro",
+                        "xdg-data/flatpak/exports/share:ro",
+                        "xdg-data/flatpak/app:ro",
+                        "/var/lib/flatpak/exports/share:ro",
+                        "/var/lib/flatpak/app:ro",
+                        "/var/lib/snapd/desktop:ro"
+                    ]
+                },
+                "Session Bus Policy": {
+                    "com.canonical.AppMenu.Registrar": "talk",
+                    "org.kde.kconfig.notify": "talk",
+                    "org.kde.KGlobalSettings": "talk",
+                    "org.freedesktop.Flatpak": "talk",
+                    "org.kde.KWin": "talk"
+                },
+                "System Bus Policy": {}
+            }
         }
     }
 }
