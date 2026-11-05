@@ -1,12 +1,5 @@
 {
  "deployed": {
-  "builds": [],
-  "publisher_run": "none",
-  "refs": {},
-  "summary_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
- },
- "format": 1,
- "pending": {
   "builds": [
    {
     "commit": "a5484aff5da6f5e9f8fa21681d9b2bea451a5d52",
@@ -34,5 +27,7 @@
    }
   },
   "summary_sha256": "4cb74a33d453c2bdb948d89dc682d9564cae9fb34b0047ecaae80333ab7c32bc"
- }
+ },
+ "format": 1,
+ "pending": null
 }
