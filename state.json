@@ -2,36 +2,6 @@
  "deployed": {
   "builds": [
    {
-    "commit": "a5484aff5da6f5e9f8fa21681d9b2bea451a5d52",
-    "created_at": "2026-11-05T14:47:39Z",
-    "dispatch_branch": "master",
-    "dispatch_branch_protected": true,
-    "dispatch_branch_sha": "82f45313e260400c623b762be9e05d2f14acc85a",
-    "event": "workflow_dispatch",
-    "packaging_commit": "82f45313e260400c623b762be9e05d2f14acc85a",
-    "run_attempt": 1,
-    "run_id": 42048450383,
-    "source_repo": "manicminer/krdc",
-    "tag": "v26.11.70.r2459.g23ff7258.avd1"
-   }
-  ],
-  "publisher_run": "42050441961/1",
-  "refs": {
-   "app/io.github.manicminer.krdc/x86_64/stable": {
-    "commit": "e8edfbe5e141944b2679626d5cffcb644f04ebb97db12d07bd2064b8355e3559",
-    "tag": "v26.11.70.r2459.g23ff7258.avd1"
-   },
-   "runtime/io.github.manicminer.krdc.Locale/x86_64/stable": {
-    "commit": "f063d6a9170b1f303cc031fdd79fc3fad83bf849ae81310dbee3c464e9d757b8",
-    "tag": "v26.11.70.r2459.g23ff7258.avd1"
-   }
-  },
-  "summary_sha256": "4cb74a33d453c2bdb948d89dc682d9564cae9fb34b0047ecaae80333ab7c32bc"
- },
- "format": 1,
- "pending": {
-  "builds": [
-   {
     "commit": "d641d1e55793ac3ffcba6c9498146632ab63ebf0",
     "created_at": "2026-11-05T20:47:11Z",
     "dispatch_branch": "main",
@@ -61,5 +31,7 @@
    }
   },
   "summary_sha256": "0dacffd3aef430e29343945047e2249b98acabe555f4141e4b58746fb1c1ec71"
- }
+ },
+ "format": 1,
+ "pending": null
 }
