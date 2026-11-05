@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: CC0-1.0
+#
+# One-time bootstrap, started by hand: exports the PUBLIC half of FLATPAK_GPG_PRIVATE_KEY after
+# checking it is exactly the key named by FLATPAK_GPG_FINGERPRINT, as an artifact to review and
+# commit (keys/ here, packaging/flatpak/ in app repositories). No inputs, no passphrase, no
+# publishing, no commits.
+name: Export public signing key
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    environment: flatpak-signing
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - env:
+          FLATPAK_GPG_PRIVATE_KEY: ${{ secrets.FLATPAK_GPG_PRIVATE_KEY }}
+          FLATPAK_GPG_FINGERPRINT: ${{ vars.FLATPAK_GPG_FINGERPRINT }}
+        run: |
+          scripts/export-public-key.sh --out "$RUNNER_TEMP/public-key"
+          { echo '```'; cat "$RUNNER_TEMP/public-key/FINGERPRINT" "$RUNNER_TEMP/public-key/SHA256SUMS"; echo '```'; } >>"$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with: {name: public-signing-key, path: '${{ runner.temp }}/public-key', retention-days: 7, if-no-files-found: error}

@@ -1,0 +1,49 @@
+{
+    "apps": {
+        "io.github.manicminer.krdc": {
+            "title": "KRDC AVD (unofficial KRDC fork)",
+            "source_repo": "manicminer/krdc",
+            "workflow_path": ".github/workflows/flatpak.yml",
+            "tag_regex": "^v[0-9]{1,4}(\\.[0-9]{1,4}){2}\\.r[0-9]{1,7}\\.g[0-9a-f]{7,40}\\.avd[0-9]{1,4}$",
+            "branch": "stable",
+            "arches": [
+                "x86_64"
+            ],
+            "extra_refs": [
+                "Locale"
+            ],
+            "max_repo_tar_bytes": 524288000,
+            "dispatch_branch": "master",
+            "packaging_prefix": "packaging/flatpak/",
+            "permissions": {
+                "Context": {
+                    "shared": [
+                        "ipc",
+                        "network"
+                    ],
+                    "sockets": [
+                        "fallback-x11",
+                        "pulseaudio",
+                        "wayland"
+                    ],
+                    "devices": [
+                        "dri"
+                    ],
+                    "filesystems": [
+                        "xdg-config/kdeglobals:ro"
+                    ]
+                },
+                "Session Bus Policy": {
+                    "com.canonical.AppMenu.Registrar": "talk",
+                    "org.kde.kconfig.notify": "talk",
+                    "org.kde.KGlobalSettings": "talk",
+                    "org.kde.StatusNotifierWatcher": "talk",
+                    "org.freedesktop.secrets": "talk",
+                    "org.kde.keyboard": "talk",
+                    "org.kde.kwalletd6": "talk"
+                },
+                "System Bus Policy": {}
+            }
+        }
+    }
+}

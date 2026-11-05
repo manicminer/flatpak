@@ -1,0 +1,214 @@
+# SPDX-License-Identifier: CC0-1.0
+#
+# Publishes successful builds of the allowlisted PUBLIC app repositories (apps.json) into the
+# shared, signed repository at https://manicminer.github.io/flatpak/. Runs on a schedule and by
+# hand; no credentials in app repositories. One run at a time; every published ref is carried over.
+# The deployed summary digest is recorded on the publisher-state branch (README: ledger).
+name: Publish
+
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+    inputs:
+      bootstrap: {description: 'Start an EMPTY repository (first publication, or retry of one that never went live)', type: boolean, default: false}
+      reconcile: {description: 'A pending deployment never went live: continue from the deployed one', type: boolean, default: false}
+      accept_summary_sha256: {description: 'Recovery: accept the live summary with this SHA-256 as deployed', type: string, default: ''}
+
+permissions: {}
+
+concurrency:
+  group: publish-pages
+  cancel-in-progress: false
+
+env:
+  REPO_URL: https://manicminer.github.io/flatpak/repo/
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      head: ${{ steps.d.outputs.head }}
+      live: ${{ steps.d.outputs.live }}
+      base: ${{ steps.d.outputs.base }}
+      update: ${{ steps.d.outputs.update }}
+      builds: ${{ steps.p.outputs.builds }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends ostree flatpak jq gnupg
+      - id: d
+        env:
+          GIT_TOKEN: ${{ github.token }}
+          BOOTSTRAP: ${{ inputs.bootstrap }}
+          RECONCILE: ${{ inputs.reconcile }}
+          ACCEPT: ${{ inputs.accept_summary_sha256 }}
+        run: |
+          set -euo pipefail
+          head="$(scripts/ledger-git.sh read --remote "https://github.com/$GITHUB_REPOSITORY.git" --out "$RUNNER_TEMP/state.json")"
+          code="$(curl -sS -o "$RUNNER_TEMP/summary" -w '%{http_code}' --proto '=https' --max-time 60 "${REPO_URL}summary?nocache=$GITHUB_RUN_ID")"
+          case "$code" in 200) live="$(sha256sum "$RUNNER_TEMP/summary" | cut -d' ' -f1)" ;; 404) live=none ;; *) echo "::error::HTTP $code for the live summary"; exit 1 ;; esac
+          args=(--state "$RUNNER_TEMP/state.json" --live "$live")
+          [[ "$BOOTSTRAP" == true ]] && args+=(--bootstrap)
+          [[ "$RECONCILE" == true ]] && args+=(--reconcile)
+          [[ -n "$ACCEPT" ]] && args+=(--accept "$ACCEPT")
+          decision="$(python3 -I scripts/ledger.py decide "${args[@]}")"
+          echo "$decision"
+          [[ "$(jq -r .action <<<"$decision")" == publish ]] || { echo "::error::$(jq -r .reason <<<"$decision")"; exit 1; }
+          update="$(jq -r .update <<<"$decision")"
+          python3 -I scripts/ledger.py published --state "$RUNNER_TEMP/state.json" --update "$update" --live "$live" >"$RUNNER_TEMP/published.json"
+          { echo "head=$head"; echo "live=$live"; echo "base=$(jq -r .base <<<"$decision")"; echo "update=$update"; } >>"$GITHUB_OUTPUT"
+      - id: p
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          scripts/plan.sh --published "$RUNNER_TEMP/published.json" --out validated
+          echo "builds=$(jq length validated/plan.json)" >>"$GITHUB_OUTPUT"
+      - if: steps.p.outputs.builds != '0'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with: {name: validated, path: validated, retention-days: 1, if-no-files-found: error}
+
+  sign:
+    needs: plan
+    if: needs.plan.outputs.builds != '0'
+    runs-on: ubuntu-24.04
+    environment: flatpak-signing
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.compose.outputs.changed }}
+      summary_sha256: ${{ steps.compose.outputs.summary_sha256 }}
+      refs: ${{ steps.compose.outputs.refs }}
+      builds: ${{ steps.compose.outputs.builds }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends ostree flatpak jq gnupg
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with: {name: validated, path: validated}
+      - id: compose
+        env:
+          BASE: ${{ needs.plan.outputs.base }}
+          FLATPAK_GPG_PRIVATE_KEY: ${{ secrets.FLATPAK_GPG_PRIVATE_KEY }}
+          FLATPAK_GPG_PASSPHRASE: ${{ secrets.FLATPAK_GPG_PASSPHRASE }}
+          FLATPAK_GPG_FINGERPRINT: ${{ vars.FLATPAK_GPG_FINGERPRINT }}
+        run: |
+          set -euo pipefail
+          source scripts/lib.sh
+          source scripts/gpg-setup.sh
+          fetch=(--out "$RUNNER_TEMP/base")
+          if [[ -z "$BASE" ]]; then fetch+=(--bootstrap); else fetch+=(--expect-summary-sha256 "$BASE"); fi
+          scripts/fetch-published.sh "${fetch[@]}"
+          gpg_setup
+          unset FLATPAK_GPG_PRIVATE_KEY FLATPAK_GPG_PASSPHRASE
+          scripts/sign-all.sh --validated validated --base "$RUNNER_TEMP/base" --site site --state-out "$RUNNER_TEMP/state"
+          if [[ -d site ]]; then
+            { echo changed=true
+              echo "summary_sha256=$(sha256sum site/repo/summary | cut -d' ' -f1)"
+              echo "refs=$(jq -c . "$RUNNER_TEMP/state/refs.json")"
+              echo "builds=$(jq -c . "$RUNNER_TEMP/state/builds.json")"; } >>"$GITHUB_OUTPUT"
+          fi
+      - if: steps.compose.outputs.changed == 'true'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with: {path: site}
+
+  # Ledger writes: contents write, no secrets, no artifacts; only job outputs, checked by ledger.py.
+  record-pending:
+    needs: [plan, sign]
+    if: needs.sign.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      head: ${{ steps.w.outputs.head }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - id: w
+        env:
+          GIT_TOKEN: ${{ github.token }}
+          HEAD_SEEN: ${{ needs.plan.outputs.head }}
+          LIVE: ${{ needs.plan.outputs.live }}
+          UPDATE: ${{ needs.plan.outputs.update }}
+          SUMMARY: ${{ needs.sign.outputs.summary_sha256 }}
+          REFS: ${{ needs.sign.outputs.refs }}
+          BUILDS: ${{ needs.sign.outputs.builds }}
+        run: |
+          set -euo pipefail
+          remote="https://github.com/$GITHUB_REPOSITORY.git"
+          scripts/ledger-git.sh read --remote "$remote" --out "$RUNNER_TEMP/state.json" >/dev/null
+          printenv REFS >"$RUNNER_TEMP/refs.json"; printenv BUILDS >"$RUNNER_TEMP/builds.json"
+          python3 -I scripts/ledger.py pending --state "$RUNNER_TEMP/state.json" --update "$UPDATE" --live "$LIVE" \
+            --summary "$SUMMARY" --refs "$RUNNER_TEMP/refs.json" --builds "$RUNNER_TEMP/builds.json" \
+            --run "$GITHUB_RUN_ID/$GITHUB_RUN_ATTEMPT" >"$RUNNER_TEMP/new.json"
+          head="$(scripts/ledger-git.sh write --remote "$remote" --expect "$HEAD_SEEN" --file "$RUNNER_TEMP/new.json" \
+            --message "pending $SUMMARY (run $GITHUB_RUN_ID/$GITHUB_RUN_ATTEMPT)")"
+          echo "head=$head" >>"$GITHUB_OUTPUT"
+
+  deploy:
+    needs: [sign, record-pending]
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+      - env:
+          WANT: ${{ needs.sign.outputs.summary_sha256 }}
+        run: |
+          for i in $(seq 1 60); do
+            got="$(curl -fsSL --proto '=https' "${REPO_URL}summary?nocache=$RANDOM$i" | sha256sum | cut -d' ' -f1 || true)"
+            [[ "$got" == "$WANT" ]] && exit 0
+            sleep 10
+          done
+          echo "::error::the live summary did not update within 10 minutes; the ledger stays pending until a later run sees it live"
+          exit 1
+
+  record-deployed:
+    needs: [sign, record-pending, deploy]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - env:
+          GIT_TOKEN: ${{ github.token }}
+          HEAD_SEEN: ${{ needs.record-pending.outputs.head }}
+          SUMMARY: ${{ needs.sign.outputs.summary_sha256 }}
+        run: |
+          set -euo pipefail
+          remote="https://github.com/$GITHUB_REPOSITORY.git"
+          scripts/ledger-git.sh read --remote "$remote" --out "$RUNNER_TEMP/state.json" >/dev/null
+          python3 -I scripts/ledger.py deployed --state "$RUNNER_TEMP/state.json" --summary "$SUMMARY" >"$RUNNER_TEMP/new.json"
+          scripts/ledger-git.sh write --remote "$remote" --expect "$HEAD_SEEN" --file "$RUNNER_TEMP/new.json" --message "deployed $SUMMARY"
+
+  # A confirmation or reconciliation decided by plan, when nothing new is deployed in this run.
+  record-update:
+    needs: [plan, sign]
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.update != 'none' && needs.sign.outputs.changed != 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - env:
+          GIT_TOKEN: ${{ github.token }}
+          HEAD_SEEN: ${{ needs.plan.outputs.head }}
+          LIVE: ${{ needs.plan.outputs.live }}
+          UPDATE: ${{ needs.plan.outputs.update }}
+        run: |
+          set -euo pipefail
+          remote="https://github.com/$GITHUB_REPOSITORY.git"
+          scripts/ledger-git.sh read --remote "$remote" --out "$RUNNER_TEMP/state.json" >/dev/null
+          python3 -I scripts/ledger.py update --state "$RUNNER_TEMP/state.json" --update "$UPDATE" --live "$LIVE" >"$RUNNER_TEMP/new.json"
+          scripts/ledger-git.sh write --remote "$remote" --expect "$HEAD_SEEN" --file "$RUNNER_TEMP/new.json" --message "$UPDATE $LIVE"

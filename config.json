@@ -1,0 +1,13 @@
+{
+    "remote_name": "manicminer",
+    "title": "manicminer Flatpak applications (unofficial)",
+    "base_url": "https://manicminer.github.io/flatpak/",
+    "repo_url": "https://manicminer.github.io/flatpak/repo/",
+    "homepage": "https://github.com/manicminer/flatpak",
+    "runtime_repo": "https://dl.flathub.org/repo/flathub.flatpakrepo",
+    "prune_depth": 3,
+    "site_limit_bytes": 900000000,
+    "state_branch": "publisher-state",
+    "discovery_days": 30,
+    "max_builds_per_run": 4
+}

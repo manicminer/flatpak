@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: CC0-1.0
+# Test stand-in for `gh api PATH`: serves $GH_FIXTURES/<PATH, non-alphanumerics as _>. No network.
+[[ "${1:-}" == api ]] || { echo "fake-gh: only 'api' is supported" >&2; exit 2; }
+path="${*: -1}"
+printf '%s\n' "$path" >>"$GH_FIXTURES/calls.log"
+f="$GH_FIXTURES/$(printf '%s' "$path" | sed 's/[^A-Za-z0-9]/_/g')"
+[[ -f "$f" ]] || { echo "gh: Not Found (HTTP 404): $path" >&2; exit 1; }
+cat "$f"
