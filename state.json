@@ -29,5 +29,37 @@
   "summary_sha256": "4cb74a33d453c2bdb948d89dc682d9564cae9fb34b0047ecaae80333ab7c32bc"
  },
  "format": 1,
- "pending": null
+ "pending": {
+  "builds": [
+   {
+    "commit": "d641d1e55793ac3ffcba6c9498146632ab63ebf0",
+    "created_at": "2026-11-05T20:47:11Z",
+    "dispatch_branch": "main",
+    "dispatch_branch_protected": false,
+    "dispatch_branch_sha": "d641d1e55793ac3ffcba6c9498146632ab63ebf0",
+    "event": "push",
+    "packaging_commit": "d641d1e55793ac3ffcba6c9498146632ab63ebf0",
+    "run_attempt": 1,
+    "run_id": 42106604698,
+    "source_repo": "manicminer/klinker",
+    "tag": "v0.4.0"
+   }
+  ],
+  "publisher_run": "42107576505/1",
+  "refs": {
+   "app/io.github.manicminer.Klinker/x86_64/stable": {
+    "commit": "fc27971d1100149442b0ad77805b11fc7c0dbb49c7a215f27116c8843ea38463",
+    "tag": "v0.4.0"
+   },
+   "app/io.github.manicminer.krdc/x86_64/stable": {
+    "commit": "e8edfbe5e141944b2679626d5cffcb644f04ebb97db12d07bd2064b8355e3559",
+    "tag": "v26.11.70.r2459.g23ff7258.avd1"
+   },
+   "runtime/io.github.manicminer.krdc.Locale/x86_64/stable": {
+    "commit": "f063d6a9170b1f303cc031fdd79fc3fad83bf849ae81310dbee3c464e9d757b8",
+    "tag": "v26.11.70.r2459.g23ff7258.avd1"
+   }
+  },
+  "summary_sha256": "0dacffd3aef430e29343945047e2249b98acabe555f4141e4b58746fb1c1ec71"
+ }
 }
